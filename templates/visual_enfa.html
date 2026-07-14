@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ε-NFA Visualization</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+<style>
+  :root {
+    --bg:#ffffff;--bg2:#f1f5f9;--bg3:#e9eef4;--bg4:#dde5ee;
+    --border:#d7dee6;--border2:#bcc6d2;
+    --text:#1e293b;--text2:#475569;--text3:#64748b;
+    --purple:#7c3aed;--purple-d:#5b21b6;--purple-l:rgba(124,58,237,0.1);
+    --teal:#0d9488;--teal-d:#0f766e;--teal-l:rgba(13,148,136,0.1);
+    --green:#16a34a;--green-d:#15803d;--green-l:rgba(22,163,74,0.1);
+    --blue:#0284c7;--blue-d:#075985;--blue-l:rgba(2,132,199,0.1);
+    --red:#dc2626;--red-d:#991b1b;--red-l:rgba(220,38,38,0.08);
+    --amber:#b45309;--amber-l:rgba(180,83,9,0.1);
+    --node-reg:#eaf4ff;--node-reg-b:#0284c7;
+    --node-start:#eafaf0;--node-start-b:#16a34a;
+    --node-accept:#f5ecff;--node-accept-b:#7c3aed;
+    --node-both:#fffbea;--node-both-b:#b45309;
+    --dead:#fef2f2;--dead-b:#dc2626;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+  header{background:linear-gradient(135deg,#4c1d95,#7c3aed,#9d174d);padding:0 28px;height:60px;display:flex;align-items:center;gap:14px;box-shadow:0 2px 16px rgba(76,29,149,0.25);position:sticky;top:0;z-index:200}
+  .logo{width:34px;height:34px;background:rgba(255,255,255,0.15);border:1.5px solid rgba(255,255,255,0.3);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:white}
+  header h1{font-size:17px;font-weight:700;color:white}
+  header p{font-size:11px;color:rgba(255,255,255,0.65);margin-top:1px}
+  .nav-btns{margin-left:auto;display:flex;gap:8px}
+  .nav-btn{padding:7px 13px;background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.2);border-radius:8px;color:white;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none;transition:background 0.2s}
+  .nav-btn:hover{background:rgba(255,255,255,0.22)}
+  .nav-btn.active{background:rgba(255,255,255,0.25);border-color:rgba(255,255,255,0.5)}
+
+  .layout{display:grid;grid-template-columns:270px 1fr;min-height:calc(100vh - 60px)}
+
+  .left{background:var(--bg2);border-right:1px solid var(--border);padding:18px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;max-height:calc(100vh - 60px);position:sticky;top:60px}
+  .slabel{font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--text3);margin-bottom:5px}
+
+  .tok-list{display:flex;flex-direction:column;gap:4px}
+  .tok-item{padding:8px 11px;border-radius:8px;border:1.5px solid var(--border);font-size:12px;display:flex;align-items:center;gap:7px;transition:all 0.2s;background:var(--bg);cursor:pointer}
+  .tok-item:hover{border-color:var(--purple);background:var(--purple-l)}
+  .tok-item.active{border-color:var(--purple);background:var(--purple-l);font-weight:700}
+  .tok-lex{font-family:monospace;font-size:13px;font-weight:700;color:var(--text)}
+  .tok-type{font-size:10px;color:var(--text3);margin-left:auto}
+
+  .controls{display:flex;gap:6px}
+  .ctrl{flex:1;padding:8px 6px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;transition:all 0.15s}
+  .ctrl:hover:not(:disabled){background:var(--purple-l);border-color:var(--purple);color:var(--purple)}
+  .ctrl:disabled{opacity:0.4;cursor:not-allowed}
+
+  /* Step animation bar */
+  .step-bar{background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:42px}
+  .step-ch{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;font-family:monospace;font-size:14px;font-weight:700;border:2px solid var(--border2);color:var(--text2);background:var(--bg3);transition:all 0.3s}
+  .step-ch.active{background:var(--purple-d);border-color:var(--purple);color:white;transform:scale(1.15);box-shadow:0 0 10px rgba(124,58,237,0.35)}
+  .step-ch.done{background:var(--green-l);border-color:var(--green);color:var(--green)}
+  .step-arrow{color:var(--text3);font-size:14px;font-weight:700}
+
+  .speed-row{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2)}
+  input[type=range]{flex:1;accent-color:var(--purple)}
+
+  .right{padding:18px;display:flex;flex-direction:column;gap:16px;overflow-y:auto}
+
+  .info-card{background:var(--bg2);border:1.5px solid var(--border);border-radius:12px;padding:16px 20px}
+  .info-card h4{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:10px}
+  .info-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .info-pill{padding:5px 13px;border-radius:20px;font-size:12px;font-weight:600;border:1.5px solid}
+  .token-display{font-family:monospace;font-size:22px;font-weight:800;color:var(--text);background:var(--bg);padding:4px 14px;border-radius:8px;border:1.5px solid var(--border)}
+
+  .explain-box{background:var(--purple-l);border:1.5px solid rgba(124,58,237,0.2);border-radius:10px;padding:14px 16px;font-size:13px;color:var(--text2);line-height:1.7}
+  .explain-box strong{color:var(--purple)}
+
+  .diagram-card{background:var(--bg2);border:1.5px solid var(--border);border-radius:12px;overflow:hidden}
+  .diagram-head{padding:10px 16px;border-bottom:1.5px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--bg3)}
+  .diagram-head h3{font-size:13px;font-weight:700;color:var(--purple)}
+  .step-badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:var(--purple-l);color:var(--purple);border:1px solid rgba(124,58,237,0.3)}
+
+  /* Zoom toolbar */
+  .zoom-bar{display:flex;gap:6px;padding:8px 14px;border-bottom:1px solid var(--border);background:var(--bg3)}
+  .zbtn{padding:5px 12px;background:var(--bg4);border:1.5px solid var(--border2);border-radius:7px;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s}
+  .zbtn:hover{background:var(--purple-l);border-color:var(--purple);color:var(--purple)}
+
+  /* Step info */
+  .step-info{padding:8px 16px;background:var(--bg3);border-bottom:1px solid var(--border);font-size:12px;color:var(--text2);min-height:34px;display:flex;align-items:center;gap:8px}
+  .step-state{font-family:monospace;font-weight:700;color:var(--purple);background:var(--purple-l);padding:2px 8px;border-radius:6px}
+
+  #cy-enfa{width:100%;height:380px;background:var(--bg)}
+
+  .table-card{background:var(--bg2);border:1.5px solid var(--border);border-radius:12px;overflow:hidden}
+  .table-head{padding:12px 18px;border-bottom:1.5px solid var(--border);font-size:13px;font-weight:700;color:var(--text);background:var(--bg3)}
+  .stbl{width:100%;border-collapse:collapse;font-size:12px}
+  .stbl th{background:var(--bg4);color:var(--text2);padding:8px 12px;font-size:10px;letter-spacing:0.7px;text-transform:uppercase;text-align:left;border-bottom:1px solid var(--border)}
+  .stbl td{padding:8px 12px;border-bottom:1px solid var(--border);font-family:'Consolas',monospace;font-size:12px;vertical-align:top;color:var(--text)}
+  .stbl tbody tr:hover{background:var(--bg3)}
+  .stbl tr.s-start td:first-child{color:var(--blue);font-weight:800}
+  .stbl tr.s-accept td:first-child{color:var(--green);font-weight:800}
+  .stbl tr.s-both td:first-child{color:var(--amber);font-weight:800}
+  .stbl tr.s-active{background:var(--purple-l)!important}
+  .sm{font-size:9px;padding:1px 5px;border-radius:4px;margin-left:4px;font-family:sans-serif}
+  .sm-s{background:var(--blue-l);color:var(--blue)}
+  .sm-a{background:var(--green-l);color:var(--green)}
+  .eps-val{color:var(--purple);font-weight:700}
+  .trans-val{color:var(--teal);font-weight:600}
+  .empty-val{color:var(--text3)}
+
+  .legend{display:flex;gap:14px;flex-wrap:wrap;padding:10px 18px;border-top:1px solid var(--border);font-size:11px;color:var(--text2);background:var(--bg3)}
+  .leg{display:flex;align-items:center;gap:5px}
+  .ld{width:13px;height:13px;border-radius:50%;border:2px solid}
+
+  .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:12px;padding:60px}
+  .empty-icon{font-size:56px;opacity:0.35}
+  .empty h2{color:var(--text2);font-size:17px;font-weight:600}
+  .empty p{color:var(--text3);font-size:13px;max-width:320px;line-height:1.6}
+
+  .spin{width:18px;height:18px;border:2.5px solid rgba(255,255,255,0.25);border-top-color:white;border-radius:50%;animation:sp 0.7s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  ::-webkit-scrollbar{width:5px;height:5px}
+  ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">ε</div>
+  <div>
+    <h1>ε-NFA Visualization</h1>
+  </div>
+  <div class="nav-btns">
+    <a href="/" class="nav-btn"> Home</a>
+    <a href="/analyzer" class="nav-btn">Analyzer</a>
+    <a href="/visual_enfa" class="nav-btn active">🔵 ε-NFA</a>
+    <a href="/visual_nfa" class="nav-btn">🔵 NFA</a>
+    <a href="/visual" class="nav-btn">🔵 DFA</a>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="left">
+    <div style="background:var(--blue-l);border:1.5px solid rgba(2,132,199,0.25);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--blue)">
+    </div>
+
+    <div>
+      <div class="slabel">Playback</div>
+      <div class="controls">
+        <button class="ctrl" id="bp" onclick="prevTok()" disabled>◀ Prev</button>
+        <button class="ctrl" id="bn" onclick="nextTok()" disabled>Next ▶</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="slabel">Step Animation</div>
+      <div class="controls" style="margin-bottom:6px">
+        <button class="ctrl" id="bplay" onclick="playAnim()" disabled>▶ Play</button>
+        <button class="ctrl" id="bstep" onclick="stepAnim()" disabled>Step →</button>
+        <button class="ctrl" id="breset" onclick="resetAnim()" disabled>↺</button>
+      </div>
+      <div class="speed-row">
+        <span>Speed</span>
+        <input type="range" id="speed" min="200" max="2000" value="800" step="100">
+        <span id="spd-lbl">800ms</span>
+      </div>
+    </div>
+
+    <div>
+      <div class="slabel">Step Tracker</div>
+      <div class="step-bar" id="step-bar"><span style="color:var(--text3);font-size:12px">—</span></div>
+    </div>
+
+    <div>
+      <div class="slabel">Tokens — click to inspect</div>
+      <div class="tok-list" id="tok-list">
+        <div style="font-size:12px;color:var(--text3)">No data — run analyzer first.</div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="right" id="right">
+    <div class="empty">
+      <div class="empty-icon">🟣</div>
+      <h2>ε-NFA Visualization</h2>
+      <p>Go to the <a href="/analyzer" style="color:var(--purple)">Analyzer</a>, run your source code, then come back here. Click any token in the left panel to see its ε-NFA built by Thompson Construction.</p>
+    </div>
+  </main>
+</div>
+
+<script>
+let simData=null, currentTok=0, cy=null;
+let animTimer=null, animStep=0, animStates=[];
+
+const TOK_COLORS={
+  KEYWORD:'#7c3aed',IDENTIFIER:'#0284c7',INTEGER:'#16a34a',
+  FLOAT:'#0d9488',OPERATOR:'#b45309',SEPARATOR:'#475569',
+  STRING_LIT:'#db2777',CHAR_LIT:'#e11d48',ERROR:'#dc2626',UNKNOWN:'#dc2626'
+};
+
+// Load from localStorage (set by analyzer page)
+window.addEventListener('load', () => {
+  const raw = localStorage.getItem('lexer_result');
+  if (raw) {
+    try { simData = JSON.parse(raw); buildTokenList(); renderTok(0); } catch(e){}
+  }
+  document.getElementById('speed').addEventListener('input', function(){
+    document.getElementById('spd-lbl').textContent = this.value+'ms';
+  });
+});
+
+function buildTokenList() {
+  if (!simData) return;
+  document.getElementById('tok-list').innerHTML = simData.tokens.map((t,i)=>`
+    <div class="tok-item" id="ti-${i}" onclick="renderTok(${i})">
+      <span style="width:8px;height:8px;border-radius:50%;background:${TOK_COLORS[t.token.type]||'#94a3b8'};flex-shrink:0"></span>
+      <span class="tok-lex">${esc(t.token.lexeme)}</span>
+      <span class="tok-type">${t.token.type}</span>
+    </div>`).join('');
+  document.getElementById('bp').disabled=false;
+  document.getElementById('bn').disabled=false;
+}
+
+function prevTok(){ if(currentTok>0) renderTok(currentTok-1); }
+function nextTok(){ if(simData && currentTok<simData.tokens.length-1) renderTok(currentTok+1); }
+
+function renderTok(idx) {
+  stopAnim();
+  currentTok=idx;
+  document.querySelectorAll('.tok-item').forEach((el,i)=>el.className=`tok-item${i===idx?' active':''}`);
+  const tok=simData.tokens[idx];
+  const type=tok.token.type, lexeme=tok.token.lexeme;
+  const enfa=tok.enfa;
+  const color=TOK_COLORS[type]||'#475569';
+
+  if(type==='ERROR'||type==='UNKNOWN'){
+    document.getElementById('right').innerHTML=`
+      <div style="background:var(--red-l);border:1.5px solid rgba(220,38,38,0.3);border-radius:10px;padding:16px 20px">
+        <b style="color:var(--red)">Invalid Token: "${esc(lexeme)}"</b>
+        <p style="margin-top:6px;font-size:13px;color:var(--text2)">${esc(tok.error||'Unknown token.')}</p>
+      </div>`;
+    return;
+  }
+
+  const epsCount=enfa.states.reduce((n,s)=>n+s.epsilon.length,0);
+  const transCount=enfa.states.reduce((n,s)=>n+Object.keys(s.transitions).length,0);
+  const syms=enfa.symbols||[];
+
+  document.getElementById('right').innerHTML=`
+    <div class="info-card">
+      <h4>Token Information</h4>
+      <div class="info-row">
+        <span class="token-display">${esc(lexeme)}</span>
+        <span class="info-pill" style="background:${color}1a;color:${color};border-color:${color}55">${type}</span>
+        <span class="info-pill" style="background:var(--purple-l);color:var(--purple);border-color:rgba(124,58,237,0.3)">${enfa.states.length} states</span>
+        <span class="info-pill" style="background:var(--purple-l);color:var(--purple);border-color:rgba(124,58,237,0.3)">${epsCount} ε-transitions</span>
+        <span class="info-pill" style="background:var(--green-l);color:var(--green);border-color:rgba(22,163,74,0.3)">${transCount} labeled transitions</span>
+      </div>
+    </div>
+
+   
+    <div class="diagram-card">
+      <div class="diagram-head">
+        <span class="step-badge">ε-NFA</span>
+        <h3>Thompson Construction — "${esc(lexeme)}"</h3>
+      </div>
+      <div class="zoom-bar">
+        <button class="zbtn" onclick="cy&&cy.zoom(cy.zoom()*1.25)">🔍+</button>
+        <button class="zbtn" onclick="cy&&cy.zoom(cy.zoom()*0.8)">🔍−</button>
+        <button class="zbtn" onclick="cy&&cy.fit(cy.elements(),40)">⊡ Fit</button>
+      </div>
+      <div class="step-info" id="step-info"><span style="color:var(--text3)">Click Play or Step to animate</span></div>
+      <div id="cy-enfa" style="width:100%;height:380px;background:var(--bg)"></div>
+      <div class="legend">
+        <div class="leg"><div class="ld" style="background:var(--node-start);border-color:var(--green)"></div> Start</div>
+        <div class="leg"><div class="ld" style="background:var(--node-accept);border-color:var(--purple)"></div> Accept</div>
+        <div class="leg"><div class="ld" style="background:var(--node-reg);border-color:var(--blue)"></div> Regular</div>
+        <div class="leg" style="color:var(--purple)">╌ ε-transitions</div>
+        <div class="leg" style="color:var(--teal)">— labeled</div>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-head">📋 ε-NFA State Transition Table</div>
+      <div style="overflow-x:auto">
+        <table class="stbl">
+          <thead>
+            <tr>
+              <th>State</th>
+              <th style="color:var(--purple)">ε-moves</th>
+              ${syms.slice(0,8).map(s=>`<th>on '${esc(s)}'</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${enfa.states.map(s=>{
+              const cls=s.is_start&&s.is_accept?'s-both':s.is_start?'s-start':s.is_accept?'s-accept':'';
+              const marks=[
+                s.is_start?'<span class="sm sm-s">→</span>':'',
+                s.is_accept?'<span class="sm sm-a">★</span>':''
+              ].join('');
+              const epsTd=s.epsilon.length
+                ?`<span class="eps-val">{${s.epsilon.join(', ')}}</span>`
+                :'<span class="empty-val">—</span>';
+              const transTds=syms.slice(0,8).map(sym=>{
+                const t=s.transitions[sym];
+                return `<td>${t?`<span class="trans-val">{${t.join(', ')}}</span>`:'<span class="empty-val">∅</span>'}</td>`;
+              }).join('');
+              return `<tr class="${cls}"><td><b>${s.state}</b>${marks}</td><td>${epsTd}</td>${transTds}</tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  // Build animation states sequence from enfa states
+  animStates = enfa.states.map(s=>s.state);
+  animStep = 0;
+  document.getElementById('bplay').disabled=false;
+  document.getElementById('bstep').disabled=false;
+  document.getElementById('breset').disabled=false;
+  updateStepBar(lexeme, -1);
+  drawENFA(enfa, type);
+}
+
+function updateStepBar(lexeme, activeIdx) {
+  const bar = document.getElementById('step-bar');
+  if (!bar) return;
+  if (!lexeme) { bar.innerHTML='<span style="color:var(--text3);font-size:12px">—</span>'; return; }
+  bar.innerHTML = lexeme.split('').map((ch,i)=>`
+    <span class="step-ch ${i===activeIdx?'active':i<activeIdx?'done':''}">${esc(ch)}</span>
+    ${i<lexeme.length-1?'<span class="step-arrow">→</span>':''}
+  `).join('');
+}
+
+function updateStepInfo(stateLabel, stepNum, total) {
+  const el = document.getElementById('step-info');
+  if (!el) return;
+  if (stateLabel===undefined) {
+    el.innerHTML='<span style="color:var(--text3)">Click Play or Step to animate</span>';
+  } else {
+    el.innerHTML=`Visiting state <span class="step-state">${stateLabel}</span> &nbsp;(${stepNum+1} / ${total})`;
+  }
+}
+
+function highlightNode(stateId) {
+  if (!cy) return;
+  cy.nodes().forEach(n=>{
+    if (n.id()===stateId) {
+      n.style({'border-color':'#7c3aed','border-width':5,'background-color':'#6d28d9','color':'#ffffff'});
+    } else {
+      const d=n.data();
+      n.style({'border-color':d.border,'border-width':3,'background-color':d.bg,'color':d.textC});
+    }
+  });
+}
+
+function playAnim() {
+  if (animTimer) { stopAnim(); return; }
+  const speed=parseInt(document.getElementById('speed').value);
+  document.getElementById('bplay').textContent='⏸ Pause';
+  const tok=simData.tokens[currentTok];
+  const lexeme=tok.token.lexeme;
+  animTimer=setInterval(()=>{
+    if(animStep>=animStates.length){ stopAnim(); return; }
+    highlightNode(animStates[animStep]);
+    updateStepInfo(animStates[animStep], animStep, animStates.length);
+    updateStepBar(lexeme, animStep);
+    animStep++;
+  }, speed);
+}
+
+function stepAnim() {
+  if(animStep>=animStates.length){ animStep=0; }
+  const tok=simData.tokens[currentTok];
+  highlightNode(animStates[animStep]);
+  updateStepInfo(animStates[animStep], animStep, animStates.length);
+  updateStepBar(tok.token.lexeme, animStep);
+  animStep++;
+}
+
+function resetAnim() {
+  stopAnim(); animStep=0;
+  updateStepBar(simData?simData.tokens[currentTok].token.lexeme:'', -1);
+  updateStepInfo();
+  if(cy) cy.nodes().forEach(n=>{ const d=n.data(); n.style({'border-color':d.border,'border-width':3,'background-color':d.bg,'color':d.textC}); });
+}
+
+function stopAnim() {
+  if(animTimer){ clearInterval(animTimer); animTimer=null; }
+  const b=document.getElementById('bplay');
+  if(b) b.textContent='▶ Play';
+}
+
+function groupSymbols(symbols) {
+  if (!symbols || symbols.length === 0) return ['∅'];
+  return [symbols.join(', ')];
+}
+
+function drawENFA(enfa, tokenType) {
+  const container=document.getElementById('cy-enfa');
+  if(!container) return;
+  if(cy){cy.destroy();cy=null;}
+  const elements=[];
+
+  enfa.states.forEach(s=>{
+    let bg=var_('--node-reg'), border=var_('--node-reg-b'), textC=var_('--text');
+    if(s.is_start&&s.is_accept){bg=var_('--node-both');border=var_('--amber');}
+    else if(s.is_accept){bg=var_('--node-accept');border=var_('--purple');}
+    else if(s.is_start){bg=var_('--node-start');border=var_('--green');}
+    elements.push({group:'nodes',data:{id:s.state,label:s.state,bg,border,textC,isAccept:s.is_accept,isStart:s.is_start}});
+  });
+
+  enfa.states.forEach(s=>{
+    s.epsilon.forEach((target,i)=>{
+      elements.push({group:'edges',data:{
+        id:`eps-${s.state}-${target}-${i}`,
+        source:s.state,target,label:'ε',isEps:true,
+        lineColor:'#7c3aed',textColor:'#7c3aed',width:2.5
+      }});
+    });
+  });
+
+  const labeledEdges={};
+  enfa.states.forEach(s=>{
+    Object.entries(s.transitions).forEach(([sym,targets])=>{
+      targets.forEach(target=>{
+        const key=`${s.state}→${target}`;
+        if(!labeledEdges[key]) labeledEdges[key]={from:s.state,to:target,syms:[]};
+        labeledEdges[key].syms.push(sym);
+      });
+    });
+  });
+
+  Object.values(labeledEdges).forEach((e,i)=>{
+    const label=groupSymbols(e.syms).join(',');
+    elements.push({group:'edges',data:{
+      id:`lbl-${i}`,source:e.from,target:e.to,label,isEps:false,
+      lineColor:'#0d9488',textColor:'#0d9488',width:2
+    }});
+  });
+
+  cy=cytoscape({
+    container,elements,
+    style:[
+      {selector:'node',style:{
+        'width':52,'height':52,
+        'background-color':'data(bg)','border-color':'data(border)','border-width':3,
+        'label':'data(label)','color':'data(textC)',
+        'font-size':13,'font-weight':700,'font-family':'Consolas, monospace',
+        'text-valign':'center','text-halign':'center',
+        'transition-property':'background-color border-color border-width','transition-duration':'0.25s',
+      }},
+      {selector:'node[?isAccept]',style:{'border-width':6,'border-style':'double'}},
+      {selector:'edge',style:{
+        'width':'data(width)',
+        'line-color':'data(lineColor)','target-arrow-color':'data(lineColor)',
+        'target-arrow-shape':'triangle','arrow-scale':1.2,
+        'curve-style':'bezier','control-point-step-size':60,
+        'label':'data(label)',
+        'font-size':12,'font-weight':700,'font-family':'Consolas, monospace',
+        'color':'data(textColor)',
+        'text-background-color':'#ffffff','text-background-opacity':0.9,
+        'text-background-padding':3,'text-background-shape':'roundrectangle',
+        'text-rotation':'none',
+      }},
+      {selector:'edge[?isEps]',style:{'line-style':'dashed','line-dash-pattern':[8,4],'font-size':14}},
+      {selector:'edge[source = target]',style:{'curve-style':'loop','loop-direction':'-90deg','loop-sweep':'45deg'}},
+    ],
+    layout:{name:'breadthfirst',directed:true,padding:50,spacingFactor:1.6,avoidOverlap:true},
+    userZoomingEnabled:true,userPanningEnabled:true,boxSelectionEnabled:false,
+  });
+  cy.ready(()=>cy.fit(cy.elements(),40));
+}
+
+function var_(name){
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim()||'#eaf4ff';
+}
+
+function esc(s){
+  if(s==null) return'';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='TEXTAREA') return;
+  if(e.key==='ArrowRight') nextTok();
+  if(e.key==='ArrowLeft') prevTok();
+});
+</script>
+</body>
+</html>

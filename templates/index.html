@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lexical Analyzer with Visualizations</title>
+<style>
+  :root {
+    --sky:      #e0f2fe;
+    --sky2:     #bae6fd;
+    --sky3:     #7dd3fc;
+    --blue:     #0ea5e9;
+    --blue-d:   #0284c7;
+    --navy:     #0c4a6e;
+    --pink:     #db2777;
+    --pink-l:   #fbcfe8;
+    --pink-m:   #f9a8d4;
+    --rose:     #be185d;
+    --purple:   #7c3aed;
+    --purple-l: #ede9fe;
+    --teal:     #0d9488;
+    --teal-l:   #ccfbf1;
+    --amber:    #d97706;
+    --amber-l:  #fef3c7;
+    --green:    #16a34a;
+    --green-l:  #dcfce7;
+    --red:      #dc2626;
+    --red-l:    #fee2e2;
+    --white:    #ffffff;
+    --gray-50:  #f8fafc;
+    --gray-100: #f1f5f9;
+    --gray-200: #e2e8f0;
+    --gray-300: #cbd5e1;
+    --gray-400: #94a3b8;
+    --gray-500: #64748b;
+    --gray-600: #475569;
+    --gray-700: #334155;
+    --text:     #1e293b;
+    --text2:    #475569;
+    --text3:    #94a3b8;
+    --r:        12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #ffffff;
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: linear-gradient(135deg, #0c4a6e 0%, #0369a1 50%, #0891b2 100%);
+    padding: 0 32px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 2px 12px rgba(12,74,110,0.3);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo {
+    width: 38px; height: 38px;
+    background: rgba(255,255,255,0.2);
+    border: 1.5px solid rgba(255,255,255,0.4);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 800; color: white;
+  }
+  header h1 { font-size: 18px; font-weight: 700; color: white; letter-spacing: -0.3px; }
+  header p  { font-size: 12px; color: rgba(255,255,255,0.65); margin-top: 1px; }
+  .hbadges  { margin-left: auto; display: flex; gap: 8px; }
+  .hbadge {
+    padding: 4px 11px; border-radius: 20px; font-size: 11px; font-weight: 600;
+    border: 1.5px solid rgba(255,255,255,0.35); color: rgba(255,255,255,0.9);
+    background: rgba(255,255,255,0.12);
+  }
+
+  /* ── LAYOUT ── */
+  .layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    min-height: calc(100vh - 64px);
+  }
+
+  /* ── LEFT PANEL ── */
+  .left {
+    background: white;
+    border-right: 1px solid var(--gray-200);
+    padding: 20px;
+    display: flex; flex-direction: column; gap: 18px;
+    overflow-y: auto;
+    max-height: calc(100vh - 64px);
+    position: sticky; top: 64px;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.04);
+  }
+
+  .section-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 1.2px;
+    text-transform: uppercase; color: var(--gray-400);
+    margin-bottom: 8px;
+  }
+
+  /* Editor */
+  .editor-wrap {
+    border: 1.5px solid var(--gray-200);
+    border-radius: var(--r);
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .editor-wrap:focus-within { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(14,165,233,0.12); }
+  .editor-bar {
+    background: var(--gray-50);
+    border-bottom: 1px solid var(--gray-200);
+    padding: 7px 12px;
+    display: flex; align-items: center; gap: 5px;
+    font-size: 11px; color: var(--gray-400);
+  }
+  .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .d-r { background: #ff5f57; } .d-y { background: #febc2e; } .d-g { background: #28c840; }
+  textarea#src {
+    width: 100%; min-height: 150px; max-height: 260px;
+    background: white; border: none; outline: none; resize: vertical;
+    color: var(--navy); font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 13.5px; line-height: 1.65; padding: 12px 14px;
+  }
+
+  /* Analyze button */
+  .btn-analyze {
+    width: 100%; padding: 12px;
+    background: linear-gradient(135deg, var(--blue-d), #0891b2);
+    border: none; border-radius: 10px;
+    color: white; font-size: 14px; font-weight: 700;
+    cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    box-shadow: 0 3px 10px rgba(14,165,233,0.35);
+    letter-spacing: 0.3px;
+  }
+  .btn-analyze:hover  { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(14,165,233,0.4); }
+  .btn-analyze:active { transform: translateY(0); }
+  .btn-analyze:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  /* Examples */
+  .ex-list { display: flex; flex-direction: column; gap: 5px; }
+  .ex-btn {
+    background: var(--gray-50); border: 1px solid var(--gray-200);
+    border-radius: 8px; padding: 8px 11px;
+    color: var(--text2); font-size: 12px; cursor: pointer;
+    text-align: left; transition: all 0.15s;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .ex-btn:hover { border-color: var(--blue); background: var(--sky); color: var(--navy); }
+  .ex-icon { font-size: 13px; }
+
+  /* Pipeline */
+  .pipeline { display: flex; flex-direction: column; gap: 0; }
+  .pipe-step {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 0; font-size: 12px; color: var(--text2);
+  }
+  .pipe-num {
+    width: 22px; height: 22px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: white; flex-shrink: 0;
+  }
+  .pipe-line { width: 22px; display: flex; justify-content: center; }
+  .pipe-line-inner { width: 2px; height: 10px; background: var(--gray-200); }
+
+  /* ── RIGHT PANEL ── */
+  .right {
+    padding: 22px;
+    display: flex; flex-direction: column; gap: 20px;
+    overflow-y: auto;
+  }
+
+  /* Empty */
+  .empty {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center; gap: 14px; padding: 60px;
+  }
+  .empty-icon { font-size: 60px; opacity: 0.2; }
+  .empty h2   { color: var(--gray-500); font-size: 17px; font-weight: 600; }
+  .empty p    { color: var(--gray-400); font-size: 13px; max-width: 320px; line-height: 1.6; }
+  .empty-hint {
+    background: var(--sky); border: 1px solid var(--sky2);
+    border-radius: 8px; padding: 10px 16px;
+    font-size: 12px; color: var(--blue-d); font-family: monospace;
+  }
+
+  /* Verdict */
+  .verdict {
+    border-radius: var(--r); padding: 14px 18px;
+    display: flex; align-items: center; gap: 14px;
+    border: 1.5px solid;
+  }
+  .verdict.ok  { background: var(--green-l); border-color: #86efac; }
+  .verdict.err { background: var(--red-l);   border-color: #fca5a5; }
+  .v-icon { font-size: 26px; }
+  .v-text h3  { font-size: 15px; font-weight: 700; }
+  .v-text p   { font-size: 12px; margin-top: 3px; opacity: 0.75; }
+  .verdict.ok  .v-text h3 { color: var(--green); }
+  .verdict.err .v-text h3 { color: var(--red); }
+
+  /* Step nav */
+  .step-nav {
+    display: flex; gap: 3px;
+    background: white;
+    padding: 5px;
+    border-radius: 14px;
+    border: 1.5px solid var(--gray-200);
+    overflow-x: auto;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .step-btn {
+    flex: 1; min-width: 80px;
+    padding: 8px 10px;
+    background: transparent; border: none; border-radius: 10px;
+    color: var(--gray-500); font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all 0.18s;
+    white-space: nowrap; text-align: center;
+  }
+  .step-btn.active { background: var(--navy); color: white; }
+  .step-btn:not(.active):hover { background: var(--sky); color: var(--navy); }
+
+  /* Card */
+  .card {
+    background: white;
+    border: 1.5px solid var(--gray-200);
+    border-radius: var(--r);
+    overflow: hidden;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+  }
+  .card-head {
+    padding: 13px 18px;
+    display: flex; align-items: center; gap: 10px;
+    border-bottom: 1.5px solid var(--gray-100);
+  }
+  .card-head h3  { font-size: 14px; font-weight: 700; color: var(--navy); }
+  .step-num {
+    width: 26px; height: 26px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 800; color: white; flex-shrink: 0;
+  }
+  .sn-1 { background: linear-gradient(135deg, #0ea5e9, #0891b2); }
+  .sn-2 { background: linear-gradient(135deg, #7c3aed, #9333ea); }
+  .sn-3 { background: linear-gradient(135deg, #db2777, #e11d48); }
+  .sn-4 { background: linear-gradient(135deg, #0d9488, #059669); }
+  .sn-5 { background: linear-gradient(135deg, #d97706, #ea580c); }
+  .sn-6 { background: linear-gradient(135deg, #16a34a, #15803d); }
+  .card-body { padding: 18px; }
+
+  /* Token table */
+  .tok-table { width: 100%; border-collapse: collapse; }
+  .tok-table th {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.9px;
+    color: var(--gray-400); padding: 8px 12px; text-align: left;
+    border-bottom: 1.5px solid var(--gray-100);
+    background: var(--gray-50);
+  }
+  .tok-table td {
+    padding: 10px 12px; font-size: 13px;
+    border-bottom: 1px solid var(--gray-100);
+  }
+  .tok-table tbody tr { cursor: pointer; transition: background 0.15s; }
+  .tok-table tbody tr:hover { background: var(--sky); }
+  .tok-table tbody tr.sel { background: var(--sky2); }
+  .tok-table tbody tr:last-child td { border-bottom: none; }
+
+  .lex-pill {
+    font-family: 'Consolas', monospace; font-size: 12.5px;
+    background: var(--navy); color: white;
+    padding: 2px 8px; border-radius: 5px; display: inline-block;
+  }
+  .tbadge { padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+  .t-KEYWORD    { background: var(--purple-l); color: var(--purple); }
+  .t-IDENTIFIER { background: var(--sky);      color: var(--blue-d); }
+  .t-INTEGER    { background: var(--green-l);  color: var(--green); }
+  .t-FLOAT      { background: var(--teal-l);   color: var(--teal); }
+  .t-OPERATOR   { background: var(--amber-l);  color: var(--amber); }
+  .t-SEPARATOR  { background: var(--gray-100); color: var(--gray-600); }
+  .t-STRING_LIT { background: var(--pink-l);   color: var(--pink); }
+  .t-CHAR_LIT   { background: var(--pink-l);   color: var(--rose); }
+  .t-ERROR      { background: var(--red-l);    color: var(--red); }
+  .t-UNKNOWN    { background: var(--red-l);    color: var(--red); }
+
+  .ico-ok  { color: var(--green); font-size: 16px; }
+  .ico-err { color: var(--red);   font-size: 16px; }
+
+  /* Token detail header */
+  .det-head {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    padding-bottom: 14px; border-bottom: 1px solid var(--gray-100); margin-bottom: 16px;
+  }
+  .det-lex {
+    font-family: monospace; font-size: 20px; font-weight: 800;
+    background: var(--navy); color: white;
+    padding: 4px 14px; border-radius: 8px;
+  }
+
+  /* Regex box */
+  .regex-box {
+    background: linear-gradient(135deg, var(--purple-l), #f5f3ff);
+    border: 1.5px solid #c4b5fd;
+    border-radius: 10px; padding: 14px 16px;
+    font-family: 'Consolas', monospace; font-size: 14px;
+    color: var(--purple); letter-spacing: 0.3px;
+    font-weight: 600;
+  }
+  .regex-note {
+    margin-top: 12px; font-size: 13px; color: var(--text2);
+    line-height: 1.65; background: var(--gray-50);
+    border-radius: 8px; padding: 12px 14px;
+    border-left: 3px solid var(--blue);
+  }
+
+  /* State tables */
+  .stbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .stbl th {
+    background: linear-gradient(135deg, var(--navy), #0369a1);
+    color: white; padding: 8px 11px;
+    font-size: 10.5px; letter-spacing: 0.7px; text-transform: uppercase;
+    text-align: left;
+  }
+  .stbl td {
+    padding: 8px 11px; border-bottom: 1px solid var(--gray-100);
+    vertical-align: top; font-family: 'Consolas', monospace; font-size: 12px;
+  }
+  .stbl tbody tr:hover { background: var(--sky); }
+  .stbl tr.s-start td:first-child  { color: var(--blue-d); font-weight: 800; }
+  .stbl tr.s-accept td:first-child  { color: var(--green);  font-weight: 800; }
+  .stbl tr.s-both   td:first-child  { color: var(--amber);  font-weight: 800; }
+
+  .sm { font-size: 9.5px; padding: 1px 5px; border-radius: 4px; margin-left: 4px; font-family: sans-serif; }
+  .sm-s { background: var(--sky2);    color: var(--blue-d); }
+  .sm-a { background: var(--green-l); color: var(--green); }
+  .eps   { color: var(--purple); }
+  .t-dead { color: var(--gray-300); }
+  .t-ok   { color: var(--teal); font-weight: 700; }
+
+  /* Legend */
+  .legend {
+    display: flex; gap: 14px; flex-wrap: wrap;
+    margin-bottom: 12px; font-size: 12px; color: var(--text2);
+  }
+  .legend span { display: flex; align-items: center; gap: 5px; }
+  .ld { width: 10px; height: 10px; border-radius: 50%; }
+  .ld-s { background: var(--blue-d); }
+  .ld-a { background: var(--green); }
+  .ld-e { background: var(--purple); border-radius: 2px; }
+
+  /* Trace */
+  .trace { display: flex; flex-direction: column; }
+  .t-row { display: flex; align-items: stretch; }
+  .t-conn { display: flex; flex-direction: column; align-items: center; width: 30px; flex-shrink: 0; }
+  .t-dot  { width: 13px; height: 13px; border-radius: 50%; border: 2.5px solid; flex-shrink: 0; margin-top: 5px; background: white; }
+  .t-dot.d-start { border-color: var(--blue); }
+  .t-dot.d-ok    { border-color: var(--green); }
+  .t-dot.d-err   { border-color: var(--red); }
+  .t-dot.d-mid   { border-color: var(--gray-300); }
+  .t-vline { width: 2px; flex: 1; background: var(--gray-200); margin: 2px 0; }
+  .t-row:last-child .t-vline { display: none; }
+  .t-content {
+    flex: 1; padding: 7px 12px; margin-bottom: 6px;
+    background: var(--gray-50); border: 1px solid var(--gray-200);
+    border-radius: 8px; font-size: 12.5px;
+  }
+  .t-state { font-family: monospace; font-weight: 800; color: var(--navy); margin-right: 8px; }
+  .t-act   { color: var(--text2); }
+  .t-rem   { float: right; font-size: 11px; color: var(--gray-400); font-family: monospace; }
+  .t-row.r-ok  .t-content { background: var(--green-l); border-color: #86efac; }
+  .t-row.r-err .t-content { background: var(--red-l);   border-color: #fca5a5; }
+
+  /* Error card */
+  .err-card {
+    background: var(--red-l); border: 1.5px solid #fca5a5;
+    border-radius: 10px; padding: 14px 16px;
+    display: flex; gap: 10px; align-items: flex-start;
+  }
+  .err-icon  { font-size: 18px; flex-shrink: 0; }
+  .err-title { font-weight: 700; color: var(--red); font-size: 14px; }
+  .err-msg   { color: var(--text2); margin-top: 5px; font-size: 13px; line-height: 1.5; }
+
+  /* NFA/DFA colored section headers */
+  .section-head {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 700; margin-bottom: 10px;
+    padding: 8px 12px; border-radius: 8px;
+  }
+  .sh-enfa  { background: var(--pink-l);  color: var(--rose); }
+  .sh-nfa   { background: var(--teal-l);  color: var(--teal); }
+  .sh-dfa   { background: var(--amber-l); color: var(--amber); }
+
+  /* Hint text */
+  .hint { font-size: 12px; color: var(--gray-400); text-align: center; margin-top: -8px; }
+
+  /* Spinner */
+  .spin {
+    width: 18px; height: 18px;
+    border: 2.5px solid rgba(255,255,255,0.3);
+    border-top-color: white; border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+
+  .vis-btn {
+    padding: 8px 16px;
+    background: linear-gradient(135deg, var(--pink), var(--rose));
+    border-radius: 9px; color: white; font-size: 12px; font-weight: 700;
+    text-decoration: none; display: flex; align-items: center; gap: 6px;
+    transition: all 0.2s; box-shadow: 0 3px 10px rgba(219,39,119,0.35);
+    white-space: nowrap;
+  }
+  .vis-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(219,39,119,0.45); }
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 3px; }
+
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; }
+    .left { position: static; max-height: none; }
+    .hbadges { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">λ</div>
+  <div>
+    <h1>Lexical Analyzer with Visualizations</h1>
+    <p>Theory of Automata — Token → ε-NFA → NFA → DFA → Accept/Reject</p>
+  </div>
+  <div class="hbadges">
+    <a href="/" class="vis-btn" style="background:rgba(255,255,255,0.18);border:1.5px solid rgba(255,255,255,0.3)"> Home</a>
+    <a href="/analyzer" class="vis-btn" style="background:rgba(255,255,255,0.18);border:1.5px solid rgba(255,255,255,0.3)"> Analyzer</a>
+    <a href="/visual_enfa" class="vis-btn" style="background:linear-gradient(135deg,#7c3aed,#db2777)">🔵 ε-NFA</a>
+    <a href="/visual_nfa" class="vis-btn" style="background:linear-gradient(135deg,#0d9488,#0891b2)">🔵 NFA</a>
+    <a href="/visual" class="vis-btn">🔵 DFA</a>
+  </div>
+</header>
+
+<div class="layout">
+
+  <aside class="left">
+
+    <div>
+      <div class="section-label">Source Code Input</div>
+      <div class="editor-wrap">
+        <div class="editor-bar">
+          <span class="dot d-r"></span><span class="dot d-y"></span><span class="dot d-g"></span>
+          <span style="margin-left:8px">source.py</span>
+          <span style="margin-left:auto; font-size:10px">Ctrl+Enter to run</span>
+        </div>
+        <textarea id="src" placeholder="int a = 1;&#10;float x = 3.14;&#10;return a;" spellcheck="false"></textarea>
+      </div>
+    </div>
+
+    <button class="btn-analyze" id="abtn" onclick="run()">
+      <span id="bicon">▶</span>
+      <span id="btxt">Analyze Source Code</span>
+    </button>
+
+    <div>
+      <div class="section-label">Quick Examples</div>
+      <div class="ex-list" id="exlist">
+        <div style="font-size:12px; color:var(--gray-400)">Loading…</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Analysis Pipeline</div>
+      <div class="pipeline" id="pipeline">
+        <div style="font-size:12px; color:var(--gray-400)">Run analysis to see pipeline.</div>
+      </div>
+    </div>
+
+  </aside>
+
+  <main class="right" id="right">
+    <div class="empty" id="empty">
+      <div class="empty-icon">⚙️</div>
+      <h2>Enter source code and click Analyze</h2>
+      <p>The simulator will tokenize your input, then show the full automata pipeline for each token.</p>
+      <div class="empty-hint">Ctrl + Enter &nbsp;→&nbsp; Quick analyze</div>
+    </div>
+  </main>
+
+</div>
+
+<script>
+let data = null, selTok = 0;
+const API = '';
+
+async function loadExamples() {
+  try {
+    const r = await fetch(`${API}/examples`);
+    const ex = await r.json();
+    window._ex = ex;
+    const icons = ['✅','✅','✅','❌','❌','⚡'];
+    document.getElementById('exlist').innerHTML = ex.map((e,i) => `
+      <button class="ex-btn" onclick="loadEx(${i})">
+        <span class="ex-icon">${icons[i]||'📄'}</span><span>${e.label}</span>
+      </button>`).join('');
+  } catch(e) {}
+}
+
+function loadEx(i) {
+  document.getElementById('src').value = window._ex[i].code;
+  run();
+}
+
+async function run() {
+  const src = document.getElementById('src').value.trim();
+  if (!src) return;
+  const btn = document.getElementById('abtn');
+  btn.disabled = true;
+  document.getElementById('bicon').innerHTML = '<div class="spin"></div>';
+  document.getElementById('btxt').textContent = 'Analyzing…';
+  try {
+    const res = await fetch(`${API}/analyze`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({source: src})
+    });
+    const d = await res.json();
+    if (d.error) throw new Error(d.error);
+    data = d; selTok = 0;
+    // Save for visual pages
+    try { localStorage.setItem('lexer_result', JSON.stringify(d)); } catch(e){}
+    render(d);
+  } catch(e) {
+    document.getElementById('right').innerHTML = `
+      <div class="err-card" style="margin:0">
+        <span class="err-icon">⚠️</span>
+        <div><div class="err-title">Error</div><div class="err-msg">${esc(e.message)}</div></div>
+      </div>`;
+  } finally {
+    btn.disabled = false;
+    document.getElementById('bicon').textContent = '▶';
+    document.getElementById('btxt').textContent = 'Analyze Source Code';
+  }
+}
+
+function render(d) {
+  const ok = d.overall === 'ACCEPTED';
+  const toks = d.tokens;
+  const errs = toks.filter(t => !t.accepted).length;
+
+  renderPipeline(ok);
+
+  document.getElementById('right').innerHTML = `
+    <div class="verdict ${ok?'ok':'err'}">
+      <div class="v-icon">${ok?'✅':'❌'}</div>
+      <div class="v-text">
+        <h3>${ok ? 'ACCEPTED' : 'REJECTED'}</h3>
+        <p>${ok
+          ? `All ${toks.length} tokens validated successfully by the DFA.`
+          : `${errs} invalid token${errs>1?'s':''} detected. DFA rejects this input.`
+        }</p>
+      </div>
+    </div>
+
+    <div class="step-nav">
+      <button class="step-btn active" onclick="showStep('tokens',this)">① Tokens</button>
+      <button class="step-btn" onclick="showStep('regex',this)">② Regex</button>
+      <button class="step-btn" onclick="showStep('enfa',this)">③ ε-NFA</button>
+      <button class="step-btn" onclick="showStep('nfa',this)">④ NFA</button>
+      <button class="step-btn" onclick="showStep('dfa',this)">⑤ DFA</button>
+      <button class="step-btn" onclick="showStep('trace',this)">⑥ DFA Trace</button>
+    </div>
+
+    <div id="p-tokens">
+      <div class="card">
+        <div class="card-head">
+          <span class="step-num sn-1">1</span>
+          <h3>Lexical Analysis — Generated Tokens</h3>
+        </div>
+        <div class="card-body" style="padding:0">
+          <table class="tok-table">
+            <thead>
+              <tr><th>#</th><th>Lexeme</th><th>Token Type</th><th>Line</th><th>Col</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              ${toks.map((t,i) => `
+                <tr onclick="selToken(${i})" class="${i===0?'sel':''}" id="tr-${i}">
+                  <td style="color:var(--gray-400);font-size:12px">${i+1}</td>
+                  <td><span class="lex-pill">${esc(t.token.lexeme)}</span></td>
+                  <td><span class="tbadge t-${t.token.type}">${t.token.type}</span></td>
+                  <td style="color:var(--gray-500);font-size:12px">${t.token.line}</td>
+                  <td style="color:var(--gray-500);font-size:12px">${t.token.col}</td>
+                  <td>${t.accepted
+                    ? '<span class="ico-ok">✓</span>'
+                    : `<span class="ico-err" title="${esc(t.error||'')}">✗ ${esc(t.error||'')}</span>`
+                  }</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="hint">Click any token row to inspect its automata breakdown in steps ②–⑥</div>
+    </div>
+
+    <div id="p-regex"  style="display:none"></div>
+    <div id="p-enfa"   style="display:none"></div>
+    <div id="p-nfa"    style="display:none"></div>
+    <div id="p-dfa"    style="display:none"></div>
+    <div id="p-trace"  style="display:none"></div>
+  `;
+
+  selToken(0);
+}
+
+function renderPipeline(ok) {
+  const steps = [
+    {label:'Lexical Analysis',  color:'#0ea5e9'},
+    {label:'Token Generation',  color:'#0284c7'},
+    {label:'Regex Matching',    color:'#7c3aed'},
+    {label:'ε-NFA (Thompson)',  color:'#db2777'},
+    {label:'NFA Conversion',    color:'#0d9488'},
+    {label:'DFA (Subset)',      color:'#d97706'},
+    {label: ok ? '✓ ACCEPT' : '✗ REJECT', color: ok ? '#16a34a' : '#dc2626'},
+  ];
+  document.getElementById('pipeline').innerHTML = steps.map((s,i) => `
+    <div class="pipe-step">
+      <div class="pipe-num" style="background:${s.color}">${i+1}</div>
+      <span style="color:${i===steps.length-1 ? s.color : 'var(--text2)'}; font-weight:${i===steps.length-1?700:400}">${s.label}</span>
+    </div>
+    ${i<steps.length-1 ? '<div class="pipe-line"><div class="pipe-line-inner"></div></div>' : ''}
+  `).join('');
+}
+
+function selToken(i) {
+  if (!data) return;
+  selTok = i;
+  document.querySelectorAll('.tok-table tbody tr').forEach((tr,j) => tr.classList.toggle('sel', j===i));
+  const tok = data.tokens[i];
+  renderRegex(tok);
+  renderENFA(tok);
+  renderNFA(tok);
+  renderDFA(tok);
+  renderTrace(tok);
+}
+
+// ── STEP 2: REGEX ─────────────────────────────────────────────────────────────
+function renderRegex(tok) {
+  const el = document.getElementById('p-regex');
+  if (isErr(tok)) { el.innerHTML = errCard(tok); return; }
+  const expl = {
+    KEYWORD:    'Keywords are reserved words matched as exact literals (e.g. int, if, return). They are checked before identifiers.',
+    IDENTIFIER: 'An identifier starts with a letter or underscore, followed by letters, digits, or underscores. Example: <code>myVar</code>, <code>_count</code>.',
+    INTEGER:    'An integer literal is one or more digit characters (0–9). Examples: <code>0</code>, <code>42</code>, <code>100</code>.',
+    FLOAT:      'A float literal has digits on both sides of a decimal point. Example: <code>3.14</code>, <code>0.5</code>.',
+    OPERATOR:   'Operators are 1–2 special characters. Single: <code>+</code> <code>=</code>. Double: <code>==</code> <code>!=</code> <code>++</code>.',
+    SEPARATOR:  'Separators are punctuation marks used to structure code: semicolons, brackets, parentheses, braces, and commas.',
+    STRING_LIT: 'A string literal is any sequence of characters enclosed in double quotes.',
+    CHAR_LIT:   'A character literal is exactly one character enclosed in single quotes. Example: <code>\'a\'</code>.',
+  }[tok.token.type] || '';
+  el.innerHTML = `
+    <div class="card">
+      <div class="card-head"><span class="step-num sn-2">2</span>
+        <h3>Regular Expression — <span class="lex-pill" style="font-size:13px">${esc(tok.token.lexeme)}</span></h3>
+      </div>
+      <div class="card-body">
+        <div class="det-head">
+          <span class="det-lex">${esc(tok.token.lexeme)}</span>
+          <span class="tbadge t-${tok.token.type}">${tok.token.type}</span>
+          <span class="${tok.accepted?'ico-ok':'ico-err'}">${tok.accepted?'✓ Valid':'✗ Invalid'}</span>
+        </div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.9px;text-transform:uppercase;color:var(--gray-400);margin-bottom:8px">Matching Pattern</div>
+        <div class="regex-box">${esc(tok.regex||'N/A')}</div>
+        <div class="regex-note">${expl}</div>
+      </div>
+    </div>`;
+}
+
+// ── STEP 3: ε-NFA ─────────────────────────────────────────────────────────────
+function renderENFA(tok) {
+  const el = document.getElementById('p-enfa');
+  if (isErr(tok)||!tok.enfa) { el.innerHTML = errCard(tok); return; }
+  const {states, regex} = tok.enfa;
+  const syms = [...new Set(states.flatMap(s=>Object.keys(s.transitions)))].slice(0,7);
+
+  el.innerHTML = `
+    <div class="card">
+      <div class="card-head" style="background:linear-gradient(135deg,#fff0f6,#fff)">
+        <span class="step-num sn-3">3</span>
+        <h3 style="color:var(--rose)">ε-NFA — Thompson Construction</h3>
+      </div>
+      <div class="card-body">
+        <div class="section-head sh-enfa">🔴 ε-NFA for <span class="tbadge t-${tok.token.type}" style="margin-left:6px">${tok.token.type}</span>
+          <span style="margin-left:auto;font-size:11px;opacity:0.8">Regex: ${esc(regex)}</span>
+        </div>
+        <div class="legend">
+          <span><span class="ld ld-s"></span> Start state (→)</span>
+          <span><span class="ld ld-a"></span> Accept state (★)</span>
+          <span><span class="ld ld-e"></span> ε = epsilon (empty string) transition</span>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="stbl">
+            <thead><tr>
+              <th>State</th><th class="eps">ε-moves</th>
+              ${syms.map(s=>`<th>on '${esc(s)}'</th>`).join('')}
+            </tr></thead>
+            <tbody>
+              ${states.map(s => {
+                const cls = s.is_start&&s.is_accept?'s-both':s.is_start?'s-start':s.is_accept?'s-accept':'';
+                const marks = [
+                  s.is_start  ? '<span class="sm sm-s">→ start</span>' : '',
+                  s.is_accept ? '<span class="sm sm-a">★ accept</span>' : ''
+                ].join('');
+                const epsTd = s.epsilon.length ? `<span class="eps">{${s.epsilon.join(', ')}}</span>` : '<span class="t-dead">—</span>';
+                const transTds = syms.map(sym => {
+                  const t = s.transitions[sym];
+                  return `<td>${t ? `<span class="t-ok">{${t.join(', ')}}</span>` : '<span class="t-dead">∅</span>'}</td>`;
+                }).join('');
+                return `<tr class="${cls}"><td><b>${s.state}</b>${marks}</td><td>${epsTd}</td>${transTds}</tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top:12px;font-size:12px;color:var(--text2);background:var(--pink-l);border-radius:8px;padding:10px 12px;border-left:3px solid var(--pink)">
+          <b>Thompson Construction:</b> Each regex operator maps to an NFA fragment. Concatenation links fragments with ε-transitions; union adds a new start with ε-branches; Kleene star adds ε-loops.
+        </div>
+      </div>
+    </div>`;
+}
+
+// ── STEP 4: NFA ───────────────────────────────────────────────────────────────
+function renderNFA(tok) {
+  const el = document.getElementById('p-nfa');
+  if (!tok.nfa||isErr(tok)) { el.innerHTML = errCard(tok); return; }
+  const {table, symbols} = tok.nfa;
+  const syms = symbols.slice(0,7);
+
+  el.innerHTML = `
+    <div class="card">
+      <div class="card-head" style="background:linear-gradient(135deg,#f0fdf9,#fff)">
+        <span class="step-num sn-4">4</span>
+        <h3 style="color:var(--teal)">NFA — Epsilon Closures Resolved</h3>
+      </div>
+      <div class="card-body">
+        <div class="section-head sh-nfa">🟢 NFA Transition Table (ε-transitions removed)</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6">
+          For each ε-NFA state, we compute its <b>ε-closure</b> (all states reachable via ε alone). This gives us the equivalent NFA where the machine can be in multiple states at once.
+        </div>
+        <div style="overflow-x:auto">
+          <table class="stbl">
+            <thead><tr>
+              <th>State</th><th>ε-closure</th>
+              ${syms.map(s=>`<th>δ(s,'${esc(s)}')</th>`).join('')}
+            </tr></thead>
+            <tbody>
+              ${table.map(row => {
+                const ec = `<span style="color:var(--purple);font-size:11px">{${row.epsilon_closure.join(', ')}}</span>`;
+                const cells = syms.map(sym => {
+                  const t = row.transitions[sym];
+                  return `<td>${t ? `<span class="t-ok">{${t.join(', ')}}</span>` : '<span class="t-dead">∅</span>'}</td>`;
+                }).join('');
+                return `<tr><td><b>${row.state}</b></td><td>${ec}</td>${cells}</tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top:12px;font-size:12px;color:var(--text2);background:var(--teal-l);border-radius:8px;padding:10px 12px;border-left:3px solid var(--teal)">
+          <b>∅</b> = empty set (no transition on that symbol). The NFA can be in multiple states simultaneously — this is resolved in the next step.
+        </div>
+      </div>
+    </div>`;
+}
+
+// ── STEP 5: DFA ───────────────────────────────────────────────────────────────
+function renderDFA(tok) {
+  const el = document.getElementById('p-dfa');
+  if (!tok.dfa||isErr(tok)) { el.innerHTML = errCard(tok); return; }
+  const {table, accept_states, start_state, symbols} = tok.dfa;
+  const syms = symbols.slice(0,12);
+
+  el.innerHTML = `
+    <div class="card">
+      <div class="card-head" style="background:linear-gradient(135deg,#fffbeb,#fff)">
+        <span class="step-num sn-5">5</span>
+        <h3 style="color:var(--amber)">DFA — Subset Construction from NFA</h3>
+      </div>
+      <div class="card-body">
+        <div class="section-head sh-dfa">🟡 DFA Transition Table — each state = set of NFA states</div>
+        <div class="legend" style="margin-bottom:12px">
+          <span><span class="ld ld-s"></span> Start (→)</span>
+          <span><span class="ld ld-a"></span> Accept (★)</span>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="stbl">
+            <thead><tr>
+              <th>DFA State</th><th>NFA States</th>
+              ${syms.map(s=>`<th>on '${esc(s)}'</th>`).join('')}
+            </tr></thead>
+            <tbody>
+              ${table.map(row => {
+                const isS = row.state===start_state, isA = accept_states.includes(row.state);
+                const cls = isS&&isA?'s-both':isS?'s-start':isA?'s-accept':'';
+                const marks = [
+                  isS ? '<span class="sm sm-s">→</span>' : '',
+                  isA ? '<span class="sm sm-a">★</span>' : ''
+                ].join('');
+                const nfaStr = `<span style="font-size:10.5px;color:var(--purple)">{${row.nfa_states.join(', ')}}</span>`;
+                const cells = syms.map(sym => {
+                  const next = row.transitions[sym];
+                  const isDead = next === 'DEAD' || next === 'TRAP';
+                  return `<td>${next && !isDead
+                    ? `<span style="color:var(--blue-d);font-weight:700">${next}</span>`
+                    : next
+                      ? `<span class="t-dead" title="dead/trap state">DEAD</span>`
+                      : '<span class="t-dead">—</span>'
+                  }</td>`;
+                }).join('');
+                return `<tr class="${cls}"><td><b>${row.state}</b>${marks}</td><td>${nfaStr}</td>${cells}</tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top:12px;font-size:12px;color:var(--text2);background:var(--amber-l);border-radius:8px;padding:10px 12px;border-left:3px solid var(--amber)">
+          <b>Subset Construction:</b> Each DFA state represents a set of NFA states. DFA is <b>deterministic</b> — exactly one transition per symbol. Accept states (★) contain at least one NFA accept state. <b>DEAD</b> = trap/dead state (no valid transition).
+        </div>
+      </div>
+    </div>`;
+}
+
+// ── STEP 6: TRACE ─────────────────────────────────────────────────────────────
+function renderTrace(tok) {
+  const el = document.getElementById('p-trace');
+  if (isErr(tok)) { el.innerHTML = errCard(tok); return; }
+  const trace = tok.trace || [];
+  const ok = tok.accepted;
+
+  el.innerHTML = `
+    <div class="card">
+      <div class="card-head" style="background:linear-gradient(135deg,${ok?'#f0fdf4':'#fef2f2'},#fff)">
+        <span class="step-num sn-6">6</span>
+        <h3 style="color:${ok?'var(--green)':'var(--red)'}">DFA Trace on "<span style="font-family:monospace">${esc(tok.token.lexeme)}</span>"</h3>
+      </div>
+      <div class="card-body">
+        <div style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6">
+          The DFA reads each character of the lexeme one by one, transitioning between states. If it ends in an <b>accept state</b>, the token is valid.
+        </div>
+        <div class="trace">
+          ${trace.map((step,i) => {
+            const isLast = i===trace.length-1;
+            const dotCls = isLast ? (ok?'d-ok':'d-err') : i===0 ? 'd-start' : 'd-mid';
+            const rowCls = isLast ? `r-${ok?'ok':'err'}` : '';
+            return `
+              <div class="t-row ${rowCls}">
+                <div class="t-conn">
+                  <div class="t-dot ${dotCls}"></div>
+                  <div class="t-vline"></div>
+                </div>
+                <div class="t-content">
+                  <span class="t-state">${step.state}</span>
+                  <span class="t-act">${esc(step.action)}</span>
+                  ${step.remaining ? `<span class="t-rem">remaining: "${esc(step.remaining)}"</span>` : ''}
+                </div>
+              </div>`;
+          }).join('')}
+        </div>
+        ${!ok && tok.error ? `
+          <div class="err-card" style="margin-top:16px">
+            <span class="err-icon">⚠️</span>
+            <div>
+              <div class="err-title">Lexical Error Detected</div>
+              <div class="err-msg">${esc(tok.error)}</div>
+            </div>
+          </div>` : ''}
+      </div>
+    </div>`;
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function showStep(name, btn) {
+  document.querySelectorAll('[id^="p-"]').forEach(p => p.style.display='none');
+  document.querySelectorAll('.step-btn').forEach(b => b.classList.remove('active'));
+  const p = document.getElementById(`p-${name}`);
+  if (p) p.style.display='';
+  if (btn) btn.classList.add('active');
+  if (name!=='tokens' && data) {
+    const tok = data.tokens[selTok];
+    const fns = {regex:renderRegex,enfa:renderENFA,nfa:renderNFA,dfa:renderDFA,trace:renderTrace};
+    if (fns[name] && tok) fns[name](tok);
+  }
+}
+
+function isErr(tok) { return tok.token.type==='ERROR'||tok.token.type==='UNKNOWN'; }
+
+function errCard(tok) {
+  return `
+    <div class="card">
+      <div class="card-head"><h3 style="color:var(--red)">Invalid Token Detected</h3></div>
+      <div class="card-body">
+        <div class="err-card">
+          <span class="err-icon">⚠️</span>
+          <div>
+            <div class="err-title">Error: "${esc(tok.token.lexeme)}"</div>
+            <div class="err-msg">${esc(tok.error||'This token is invalid and cannot be classified.')}</div>
+            <div class="err-msg" style="margin-top:8px;color:var(--gray-500)">
+              Since this is an invalid token, the automata construction is skipped. The DFA rejects this input at the lexical analysis stage.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function esc(s) {
+  if (s==null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+document.getElementById('src').addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key==='Enter') run();
+});
+
+// Pick up source code passed from the home page
+(function() {
+  const pending = sessionStorage.getItem('pendingSource');
+  if (pending) {
+    document.getElementById('src').value = pending;
+    sessionStorage.removeItem('pendingSource');
+    run();
+  }
+})();
+
+loadExamples();
+// Read pending source passed from home page
+window.addEventListener('load', () => {
+  const pending = sessionStorage.getItem('pendingSource');
+  if (pending) {
+    document.getElementById('src').value = pending;
+    sessionStorage.removeItem('pendingSource');
+    run();
+  }
+});
+</script>
+</body>
+</html>
