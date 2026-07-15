@@ -66,19 +66,24 @@ def get_examples():
     return jsonify(examples)
 
 if __name__ == '__main__':
-    import webbrowser
-    import threading
+    import os
 
-    # Auto-opens the browser when .exe is double-clicked
-    def open_browser():
+    # Only open the browser when running locally
+    if os.environ.get("RENDER") is None:
+        import threading
+        import webbrowser
         import time
-        time.sleep(1.5)
-        webbrowser.open('http://localhost:5050')
 
-    threading.Thread(target=open_browser, daemon=True).start()
+        def open_browser():
+            time.sleep(1.5)
+            webbrowser.open("http://localhost:5050")
 
-    print("\n✅ Lexical Analyzer running at http://localhost:5050")
-    print("   Open your browser if it doesn't open automatically.")
-    print("   Press Ctrl+C to stop.\n")
+        threading.Thread(target=open_browser, daemon=True).start()
 
-    app.run(debug=False, port=5050, host='0.0.0.0')
+        print("\n✅ Lexical Analyzer running at http://localhost:5050")
+        print("   Open your browser if it doesn't open automatically.")
+        print("   Press Ctrl+C to stop.\n")
+
+    # Render provides the PORT environment variable
+    port = int(os.environ.get("PORT", 5050))
+    app.run(host="0.0.0.0", port=port, debug=False)
